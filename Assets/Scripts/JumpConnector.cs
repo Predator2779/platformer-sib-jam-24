@@ -1,10 +1,11 @@
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class JumpConnector : MonoBehaviour
 {
-    [SerializeField] private HingeJoint2D _closestHinge;
-    [SerializeField] [Range(0, 50)] private float _connectionRadius;
+    [SerializeField] private HingeJoint2D _closestHinge, _addedHinge;
+    [SerializeField] [Range(0, 50)] private float _connectionRadius, _swingForce;
     [SerializeField] private LayerMask _layer;
 
     private PlayerMovement _playerMovement;
@@ -19,27 +20,36 @@ public class JumpConnector : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyUp(KeyCode.E))
-        {
-            if (!_isGrabed)
-            {
-                SetClosestJoint();
-                GrabJoint();
-            }
-            else
-            {
-                FreeJoint();
-            }
-        }
+        if (Input.GetKeyUp(KeyCode.E)) Grab(_isGrabed);
+        
+        if (_isGrabed) Swinging();
     }
 
+    private void Grab(bool value)
+    {
+        if (!value)
+        {
+            SetClosestJoint();
+            GrabJoint();
+        }
+        else
+        {
+            FreeJoint();
+        }
+    }
+    
+    private void Swinging()
+    {
+        _playerRb.AddForce(new Vector2(Input.GetAxisRaw("Horizontal") * _swingForce, 0));
+    }
+    
     private void GrabJoint()
     {
         if (_closestHinge == null) return;
         
         _closestHinge.transform.position = transform.position;
-        _closestHinge.enabled = true;
-        _closestHinge.connectedBody = _playerRb;
+        _addedHinge = _closestHinge.AddComponent<HingeJoint2D>();
+        _addedHinge.connectedBody = _playerRb;
         _playerRb.constraints = RigidbodyConstraints2D.None;
         _playerMovement.enabled = false;
         _playerRb.gravityScale = 2;
@@ -48,11 +58,11 @@ public class JumpConnector : MonoBehaviour
 
     private void FreeJoint()
     {
-        _closestHinge.connectedBody = null;
         transform.rotation = Quaternion.identity;
         _playerRb.constraints = RigidbodyConstraints2D.FreezeRotation;
         _playerMovement.enabled = true;
-        _closestHinge.enabled = false;
+        Destroy(_addedHinge);
+        _addedHinge = null;
         _isGrabed = false;
     }
 
